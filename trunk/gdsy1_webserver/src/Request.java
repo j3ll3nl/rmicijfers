@@ -1,104 +1,64 @@
-import java.io.*;
+
+import java.io.IOException;
 import java.util.*;
-import java.io.InputStream;
 
-/*
-This file is part of Diagnostic Webserver.
 
-Diagnostic Webserver is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
 
-Diagnostic Webserver is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Diagnostic Webserver.  If not, see <http://www.gnu.org/licenses/>.
-
-Copyright 2008, Henze Berkheij & Mark van de Haar
-*/
-
-/**
- *When an request is made by an client, this class is being instantiated by {@link Service}
- */
-public class Request extends HashMap<String, String>
-{
-	private static final long serialVersionUID = 4820941590042145694L;
-	private MyInputStream  myInputStream;
+public class Request extends HashMap<String, String> {
+    public Control control;
 	private String method=null;
 	private String uri=null;
 	private String version=null;
+    private SocketInputStream socketInputStream;
+    private int serviceLogNr;
+    private String fullRequest;
 
-	/**
-	 * This will create an instance of this class. When instantiated, this constructor will collect the requestline and the headers
-	 * from the {@link MyInputStream}.
-	 * @param is contains an instance of {@link MyInputStream}
-	 */
-	public Request(InputStream is) throws IOException
+	public Request(Control contr, SocketInputStream sis) throws IOException
 	{
-		myInputStream = new MyInputStream(is);
-	
-		String requestline = myInputStream.readLine();
-		String[] splitline = requestline.split(" ");
-		method = splitline[0];
-		uri = splitline[1];
-		version = splitline[2];
-		// nu de headers
-		String line = "";
-		while ((line=myInputStream.readLine()) != null)
+        this.control = contr;
+
+        socketInputStream = new SocketInputStream(sis);
+
+		String requestline = socketInputStream.readLine();
+
+        this.fullRequest = " " + requestline;
+
+		String[] inputSplit = requestline.split(" ");
+		method = inputSplit[0];
+		uri = inputSplit[1];
+		version = inputSplit[2];
+
+		String lijn = "";
+		while ((lijn=socketInputStream.readLine()) != null)
 		{
-			String[] header = line.split(":",2);
-			put(header[0], header[1]);
+			String[] headerlijn = lijn.split(":",2);
+			put(headerlijn[0], headerlijn[1]);
 		}
+    
 	}
 
-	/**
-	 * Returns the HTTP-Method.
-	 * @return {@link String}
-	 */
-	public String getMETHOD()
+	public synchronized String getMETHOD()
 	{
 		return method;
 	}
 
-	/**
-	 * Returns the URI that was requested by the client.
-	 * @return {@link String}
-	 */
-	public String getURI()
+	public synchronized String getRequestURI()
 	{
 		return uri;
 	}
 
-	/**
-	 * Returns the HTTP-Version
-	 * @return {@link String}
-	 */
-	public String getVERSION()
+	public synchronized String getVERSION()
 	{
 		return version;
 	}
 
-	/**
-	 * Returns the Requestline plus the headers from the request made by the client.
-	 * @return {@link String}
-	 */
-	public String toString()
-	{
-		String s;
-		String h;
-		s= "\r\n--------Request---------\r\n\r\n"+getMETHOD() + " " + getURI() + " " + getVERSION();
+    public void addServiceLogNr( int serviceLogNr) {
+        this.serviceLogNr = serviceLogNr;
+    }
 
-		for(String key : keySet())
-		{
-			h = key;
-			s+="\n"+h+": "+get(h);
-		}
-		s+="\r\n\r\n-----End of Request-----\r\n";
-		return s;
-	}
-
+    @Override
+    protected void finalize() throws Throwable {
+        if (Main.debug) System.out.println("Debug: Response finalize(): Request gefinalized."); //debug regel die alleen weergegeven word als Main.debug op true staat
+        control.log(this.serviceLogNr,"Request gefinalized.");
+    }
 }

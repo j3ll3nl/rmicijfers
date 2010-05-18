@@ -1,87 +1,68 @@
+
 import java.net.Socket;
 import java.io.*;
-import java.io.IOException;
 
-/*
-This file is part of Diagnostic Webserver.
 
-Diagnostic Webserver is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+public class Service implements Runnable{
 
-Diagnostic Webserver is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+    public Control control;
+    private Socket serverSocket;
+    private String contentbase;
+    private Server server;
+    private int serviceLogNr;
 
-You should have received a copy of the GNU General Public License
-along with Diagnostic Webserver.  If not, see <http://www.gnu.org/licenses/>.
+    public Service(Control contr,Server s,Socket sk, String contentbase) throws Exception {
+        if (Main.debug) System.out.println("Debug: Service Constructor"); //debug regel die alleen weergegeven word als Main.debug op true staat
+        
+        serverSocket = sk;
+        this.contentbase = contentbase;
+        this.server = s;
+        this.control = contr;
 
-Copyright 2008, Henze Berkheij & Mark van de Haar
-*/
+        // Zorgt dat de Server thread hem kent.
+        this.server.addservice(this,Thread.currentThread());
 
-/**
- * This class handles all incoming client requests. This class is being instantiated by {@link Server} when a client is connecting to the server.
- */
-public class Service
-implements Runnable
-{
-  InputStream myinputstream;
-  private Socket socket = null;
-  private String codeBase;
-  private String version;
+        SocketInputStream input = new  SocketInputStream(serverSocket.getInputStream());
+		Request request = new Request(control,input);
 
-  /**
-   * This creates an instance of this class.
-   * @param socket contains the socket that wants to instantiate this class
-   * @param codeBase contains the directory where the codeBase is located
-   * @param version will contain the version of the software
-   */
-  public Service(Socket newSocket, String newCodeBase, String newVersion)
-  {
-	version = newVersion;
-    socket = newSocket;
-    codeBase = newCodeBase;
-    
-  }
+        request.addServiceLogNr(serviceLogNr);
 
-  /**
-   * This method is member of {@link Thread}. This method will handle the clients request and returns a reponse.
-   */
-  public void run()
-  {
-	  boolean quit = false; 
-	  while(!quit)
-	  {
-	  	try
-	    {
-	    	socket.setSoTimeout(30000);
-	    	System.out.println("Socket Timeout set to "+socket.getSoTimeout());		
-    		myinputstream = new MyInputStream(socket.getInputStream());
-		    Request request = new Request(myinputstream);
-	     	
-		    System.out.println(request);
-	    	Response response = new Response(socket.getOutputStream(), version);
-	        Servlet servlet = new Servlet(request, response, codeBase);
-	        servlet.doGET(request.getURI());
-	        System.out.println(response);
-	    	response.send();
-	    }
-	    catch(IOException ioe)
-	    {
-	    	try 
-	    	{
-	    		System.out.println("Closing socket after Time-out");
-				socket.close();
-				quit = true;
-			} 
-	    	catch (IOException e) 
-			{
-	    		System.out.println("Failed to close socket after Socket Time-out");
-	    		quit = true;
-			}
-	    }
-	 }
-  }
+        String requestTemp = request.toString();
+        requestTemp = requestTemp.replaceAll("Host", "\nHost");
+        requestTemp = requestTemp.replaceAll("Accept-Encoding", "\nAccept-Encoding");
+        requestTemp = requestTemp.replaceAll("User-Agent", "\nUser-Agent");
+        requestTemp = requestTemp.replaceAll("Connection", "\nConnection");
+        requestTemp = requestTemp.replaceAll("UA-CPU", "\nUA-CPU");
+        requestTemp = requestTemp.replaceAll("Cache-Control", "\nCache-Control");
+        requestTemp = requestTemp.substring(1, requestTemp.length()-1);
+
+
+       	serviceLogNr = control.log("\nMethod=" +request.getMETHOD()+"\nVersion=" + request.getVERSION()+"\n"+requestTemp+"\n");
+
+        Servlet svlt = new Servlet(control,serviceLogNr,this.contentbase);
+        
+        OutputStream os = serverSocket.getOutputStream();
+
+        //if (Main.debug) System.out.println("Content" + content.toString());
+
+        os.write(svlt.service(request).getBytes());
+
+        //os.write(head);
+        //os.write(body);
+        os.close();
+
+        this.closeSocket();
+    }
+
+    public void closeSocket(){
+        control.log(this.serviceLogNr,"Socket gesloten");
+        this.server.removeService(this);
+        control.log(this.serviceLogNr,"Service afgesloten");
+
+    }
+
+    public void run() {
+        
+    }
+
 }
