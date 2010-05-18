@@ -1,26 +1,10 @@
-/*
-This file is part of Diagnostic Webserver.
 
-Diagnostic Webserver is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+public class Main {
+public static boolean debug;
 
-Diagnostic Webserver is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+    public static void main(String[] args) {
+        Main.debug = false; // Hier mee kan je zorgen dat output niet gedaan word als debug niet aan staat.
 
-You should have received a copy of the GNU General Public License
-along with Diagnostic Webserver.  If not, see <http://www.gnu.org/licenses/>.
-
-Copyright 2008, Henze Berkheij & Mark van de Haar
-*/
-
-public class Main 
-{
-	public static void main (String[] arg)
-	{	
-		new Control("0.2 ALPHA");
-	}
+        new Control();
+    }
 }
